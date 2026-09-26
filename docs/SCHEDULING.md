@@ -41,8 +41,8 @@ elevation service, wrote the run, evidence and log, and `status` reported it (te
 ## Setup: Linux
 
 `velorona-run schedule-template --kind cron ...` prints a crontab line; `--kind systemd` prints a user service and timer
-(`Persistent=true` makes systemd run `tick` after a boot; occurrences that were missed while off are still recorded as missed, not
-run late). **Not tested on Linux in this release.**
+(`Persistent=true` makes systemd start `tick` after a boot. An occurrence still within its grace period then runs late; anything past
+grace is recorded as missed, never run silently late). **Not tested on Linux in this release.**
 
 ## Windows
 
