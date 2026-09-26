@@ -58,7 +58,8 @@ def _link_warnings(result: dict) -> list:
 
 
 def execute(workflow: dict, validation: dict, analyzer, *, source: dict = None, versions: dict = None,
-            on_progress=None, on_checkpoint=None, is_canceled=None, sleep=time.sleep) -> dict:
+            on_progress=None, on_checkpoint=None, is_canceled=None, sleep=time.sleep,
+            trigger: str = "manual", scheduled_for: str = None, run_id: str = None) -> dict:
     """Run `workflow` over validation['accepted']; return the finished run record.
 
     source: {'name','sha256'} of the input file. versions: engine.collect_versions().
@@ -77,8 +78,11 @@ def execute(workflow: dict, validation: dict, analyzer, *, source: dict = None, 
 
     run = {
         "schema": RUN_SCHEMA, "schema_version": RUN_SCHEMA_VERSION,
-        "run_id": uuid.uuid4().hex[:16],
+        "run_id": run_id or uuid.uuid4().hex[:16],
         "workflow_id": workflow["workflow_id"], "workflow_name": workflow["name"],
+        "workflow_version": workflow.get("workflow_version", 1),
+        # When it was due (scheduled runs) and in which zone the schedule is written; start/finish times below are UTC.
+        "schedule": {"trigger": trigger, "scheduled_for": scheduled_for, "timezone": workflow.get("timezone", "UTC")},
         "workflow_snapshot": copy.deepcopy(workflow),
         "status": STATUS_RUNNING, "started_at": utc_now(), "finished_at": None,
         "input": {"source_name": (source or {}).get("name"), "sha256": (source or {}).get("sha256"),

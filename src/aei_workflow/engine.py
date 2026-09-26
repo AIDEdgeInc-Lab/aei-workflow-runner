@@ -54,11 +54,14 @@ def _pkg_version(dist_name: str):
         return None
 
 
-def collect_versions(plugin_version: str = None, qgis_version: str = None) -> dict:
+def collect_versions(plugin_version: str = None, qgis_version: str = None, implementation: str = None) -> dict:
+    """implementation: None for the QGIS plugin (identified by velorona_plugin); a short name such as "velorona-run" for the CLI."""
     import platform
+    from . import __version__
     from .schema import RUN_SCHEMA_VERSION, WORKFLOW_SCHEMA_VERSION
-    return {
+    versions = {
         "velorona_plugin": plugin_version,
+        "workflow_runner": __version__,
         "analysis_engine": {
             "aei-link-clearance": _pkg_version("aei-link-clearance"),
             "aei-geo-features": _pkg_version("aei-geo-features"),
@@ -68,6 +71,9 @@ def collect_versions(plugin_version: str = None, qgis_version: str = None) -> di
         "run_schema": RUN_SCHEMA_VERSION,
         "workflow_schema": WORKFLOW_SCHEMA_VERSION,
     }
+    if implementation:
+        versions["implementation"] = implementation
+    return versions
 
 
 def collect_provenance() -> dict:

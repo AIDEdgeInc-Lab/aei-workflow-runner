@@ -7,6 +7,7 @@ here: it is aei_link_clearance.batch.REQUIRED_COLUMNS, read from the library at 
 from __future__ import annotations
 
 import copy
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -47,7 +48,9 @@ def _library_defaults():
 
 
 def new_workflow(name: str, *, input_path: str = None, k_factor: float = None, n_samples: int = None,
-                 execution: dict = None, retain_runs: int = None, workflow_id: str = None) -> dict:
+                 execution: dict = None, retain_runs: int = None, workflow_id: str = None,
+                 workflow_version: int = 1, schedule: dict = None, tz: str = None, retain_hours: float = None,
+                 write_evidence: bool = True) -> dict:
     default_k, default_n = _library_defaults()
     now = utc_now()
     doc = {
@@ -67,7 +70,14 @@ def new_workflow(name: str, *, input_path: str = None, k_factor: float = None, n
         "execution": {**DEFAULT_EXECUTION, **(execution or {})},
         # None = keep every run. An integer moves older runs to the store's _pruned/ folder
         # (recoverable); nothing is ever deleted by retention.
-        "output": {"retain_runs": retain_runs},
+        # retain_runs / retain_hours: None = no limit on that axis. When either is set, older runs are MOVED to the
+        # store's _pruned/ folder; nothing is deleted. write_evidence: the runner writes each run's evidence files
+        # (report.md, results.csv, links.geojson, ...) next to run.json.
+        "output": {"retain_runs": retain_runs, "retain_hours": retain_hours, "write_evidence": write_evidence},
+        # Optional additions (schema stays v1; readers that do not know them ignore them):
+        "workflow_version": workflow_version,       # the customer's own revision number of this definition
+        "schedule": schedule or {"kind": "manual"},  # only the CLI's `tick` acts on this; Web and QGIS store it untouched
+        "timezone": tz or "UTC",                    # IANA name; schedule times are wall-clock in this zone
     }
     validate_workflow(doc)
     return doc
@@ -100,10 +110,66 @@ def validate_workflow(doc) -> dict:
         v = ex.get(key)
         if not isinstance(v, (int, float)) or isinstance(v, bool) or v < 0:
             raise SchemaError(f"{key} must be zero or more seconds")
-    retain = doc.get("output", {}).get("retain_runs")
+    out = doc.get("output", {})
+    retain = out.get("retain_runs")
     if retain is not None and (not isinstance(retain, int) or isinstance(retain, bool) or retain < 1):
         raise SchemaError("retain_runs must be empty (keep all) or a whole number of 1 or more")
+    hours = out.get("retain_hours")
+    if hours is not None and (not isinstance(hours, (int, float)) or isinstance(hours, bool) or not 0 < hours <= 24 * 3650):
+        raise SchemaError("retain_hours must be empty (keep all) or a number of hours greater than 0")
+    if "write_evidence" in out and not isinstance(out["write_evidence"], bool):
+        raise SchemaError("write_evidence must be true or false")
+    version = doc.get("workflow_version", 1)
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        raise SchemaError("workflow_version must be a whole number of 1 or more")
+    path = doc.get("input", {}).get("path")
+    if path is not None and (not isinstance(path, str) or "\x00" in path):
+        raise SchemaError("input.path must be text")
+    validate_timezone(doc.get("timezone", "UTC"))
+    validate_schedule(doc.get("schedule", {"kind": "manual"}))
     return doc
+
+
+DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+_HHMM = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
+DEFAULT_GRACE_MINUTES = 15
+
+
+def validate_timezone(name) -> None:
+    if not isinstance(name, str) or not name:
+        raise SchemaError("timezone must be an IANA time zone name such as 'America/Toronto', or 'UTC'")
+    if name == "UTC":
+        return
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(name)
+    except Exception as exc:  # ZoneInfoNotFoundError, ValueError (bad key), ImportError (no zoneinfo/tzdata)
+        raise SchemaError(f"unknown time zone '{name}' ({type(exc).__name__}); use an IANA name such as 'America/Toronto'") from exc
+
+
+def validate_schedule(s) -> None:
+    """A deliberately small vocabulary: manual, every N minutes, daily at a time, or chosen weekdays at a time."""
+    if not isinstance(s, dict) or s.get("kind") not in ("manual", "interval", "daily", "weekly"):
+        raise SchemaError("schedule.kind must be one of: manual, interval, daily, weekly")
+    kind = s["kind"]
+    allowed = {"manual": {"kind"}, "interval": {"kind", "every_minutes", "grace_minutes"},
+               "daily": {"kind", "at", "grace_minutes"}, "weekly": {"kind", "days", "at", "grace_minutes"}}[kind]
+    extra = set(s) - allowed
+    if extra:
+        raise SchemaError(f"schedule has unsupported field(s): {', '.join(sorted(extra))}")
+    if kind == "interval":
+        n = s.get("every_minutes")
+        if not isinstance(n, int) or isinstance(n, bool) or not 5 <= n <= 7 * 24 * 60:
+            raise SchemaError("schedule.every_minutes must be a whole number from 5 to 10080")
+    if kind in ("daily", "weekly") and not (isinstance(s.get("at"), str) and _HHMM.match(s["at"])):
+        raise SchemaError("schedule.at must be a 24-hour time written HH:MM, for example 02:30")
+    if kind == "weekly":
+        days = s.get("days")
+        if not isinstance(days, list) or not days or len(set(days)) != len(days) or any(d not in DAYS for d in days):
+            raise SchemaError("schedule.days must be a non-empty list of distinct days from: " + ", ".join(DAYS))
+    g = s.get("grace_minutes", DEFAULT_GRACE_MINUTES)
+    if not isinstance(g, int) or isinstance(g, bool) or not 0 <= g <= 24 * 60:
+        raise SchemaError("schedule.grace_minutes must be a whole number from 0 to 1440")
 
 
 def touch(doc: dict) -> dict:

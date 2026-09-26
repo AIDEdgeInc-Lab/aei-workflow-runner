@@ -31,6 +31,10 @@ STATUS_PARTIAL = "partial"       # some links analysed, some rejected/failed
 STATUS_FAILED = "failed"         # no link produced a result
 STATUS_CANCELED = "canceled"     # user stopped it; finished links are kept
 STATUS_INTERRUPTED = "interrupted"
+STATUS_MISSED = "missed"         # a scheduled occurrence that did not run (machine off, scheduler down, run overlap); has no links
+
+TRIGGER_MANUAL = "manual"
+TRIGGER_SCHEDULED = "scheduled"
 
 LINK_OK = "ok"
 LINK_FAILED = "failed"

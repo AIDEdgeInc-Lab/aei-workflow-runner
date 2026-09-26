@@ -133,7 +133,14 @@ def report_md(run: dict) -> str:
     L = [f"# Velorona run report -- {_md(run['workflow_name'])}", "",
          f"**Run** `{run['run_id']}` · **Status: {run['status'].upper()}** · started {run['started_at']}, "
          f"finished {run.get('finished_at') or 'n/a'}", ""]
-    if run["status"] != "completed":
+    sched = run.get("schedule") or {}
+    if sched.get("trigger") == "scheduled":
+        L += [f"Scheduled run (workflow version {run.get('workflow_version', 1)}): due {sched.get('scheduled_for')}, schedule time zone {sched.get('timezone')}.", ""]
+    elif run.get("workflow_version") is not None:
+        L += [f"Manual run (workflow version {run.get('workflow_version')}).", ""]
+    if run["status"] == "missed":
+        L += [f"> This scheduled run did **not** happen: {run.get('error') or 'reason not recorded'}. No links were analysed and no results exist for it.", ""]
+    elif run["status"] != "completed":
         L += [f"> This run is **{run['status']}**: {c['ok']} of {c['input_rows']} input rows were analysed "
               f"({c['failed']} failed, {c['rejected']} rejected, {c['not_run']} not run)."
               + (f" {run['error']}" if run.get("error") else ""), ""]
@@ -177,27 +184,38 @@ def report_md(run: dict) -> str:
     return "\n".join(L)
 
 
-def export_package(run: dict, dest_dir: str) -> str:
-    """Write the package under dest_dir; refuses to reuse an existing folder. Returns its path."""
-    if run["status"] == "running":
-        raise ValueError("The run is still in progress; export it when it finishes.")
-    folder = os.path.join(dest_dir, f"velorona-run-{run['run_id']}")
-    if os.path.exists(folder):
-        raise FileExistsError(f"{folder} already exists; nothing was overwritten")
-    os.makedirs(folder)
-    files = {
+def package_files(run: dict) -> dict:
+    """{file name: text} for the result package. Deterministic for a given run apart from the two generation timestamps."""
+    return {
         "run.json": json.dumps(run, indent=2, allow_nan=False),
         "input_links.csv": input_links_csv(run),
         "results.csv": results_csv(run),
         "links.geojson": json.dumps(geojson(run), indent=2, allow_nan=False),
         "report.md": report_md(run),
     }
+
+
+def write_package(run: dict, folder: str) -> str:
+    """Write the package INTO `folder` (created if needed). Files are created exclusively: an existing file is never overwritten."""
+    if run["status"] == "running":
+        raise ValueError("The run is still in progress; export it when it finishes.")
+    os.makedirs(folder, exist_ok=True)
     manifest = {"format": "velorona.result-package", "run_id": run["run_id"], "created_at": utc_now(), "files": {}}
-    for name, text in files.items():
+    for name, text in package_files(run).items():
         data = text.encode("utf-8")
-        with open(os.path.join(folder, name), "wb") as f:
+        with open(os.path.join(folder, name), "xb") as f:
             f.write(data)
         manifest["files"][name] = hashlib.sha256(data).hexdigest()
-    with open(os.path.join(folder, "manifest.json"), "w", encoding="utf-8") as f:
+    with open(os.path.join(folder, "manifest.json"), "x", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
     return folder
+
+
+def export_package(run: dict, dest_dir: str) -> str:
+    """Write the package under dest_dir/velorona-run-<id>; refuses to reuse an existing folder. Returns its path."""
+    if run["status"] == "running":
+        raise ValueError("The run is still in progress; export it when it finishes.")
+    folder = os.path.join(dest_dir, f"velorona-run-{run['run_id']}")
+    if os.path.exists(folder):
+        raise FileExistsError(f"{folder} already exists; nothing was overwritten")
+    return write_package(run, folder)

@@ -18,8 +18,11 @@ import json
 import os
 import shutil
 import zipfile
+from datetime import datetime, timedelta, timezone
 
-from .schema import RUN_SCHEMA, RUN_SCHEMA_VERSION, STATUS_INTERRUPTED, STATUS_RUNNING, check_document, valid_id
+from .schema import (
+    RUN_SCHEMA, RUN_SCHEMA_VERSION, STATUS_INTERRUPTED, STATUS_RUNNING, WORKFLOW_SCHEMA, check_document, valid_id,
+)
 from .workflow import utc_now, validate_workflow
 
 BACKUP_FORMAT = "velorona.backup"
@@ -127,30 +130,49 @@ class RunStore:
         summaries.sort(key=lambda s: s["started_at"] or "", reverse=True)
         return summaries, problems
 
-    def recover_interrupted(self, active_run_ids=()) -> list:
+    def recover_interrupted(self, active_run_ids=(), workflow_id: str = None) -> list:
         """A run left in 'running' by a crash or a killed QGIS is relabelled 'interrupted'. Its
-        finished links are kept; the ones that did not finish stay 'not_run'."""
+        finished links are kept; the ones that did not finish stay 'not_run'. workflow_id limits it to one workflow
+        (the CLI does this once it holds that workflow's lock, which proves no other run of it is alive)."""
         recovered = []
-        summaries, _ = self.list_runs()
+        summaries, _ = self.list_runs(workflow_id)
         for s in summaries:
             if s["status"] == STATUS_RUNNING and s["run_id"] not in active_run_ids:
                 run = self.load_run(s["run_id"])
                 run["status"] = STATUS_INTERRUPTED
                 run["finished_at"] = run["finished_at"] or utc_now()
-                run["error"] = run["error"] or "The run did not finish (QGIS closed or crashed while it was running)."
+                run["error"] = run["error"] or "The run did not finish (the program was closed, killed or crashed while it was running)."
                 self.save_run(run)
                 recovered.append(s["run_id"])
         return recovered
 
-    def apply_retention(self, workflow: dict) -> list:
-        """Move (never delete) a workflow's oldest runs beyond output.retain_runs to _pruned/."""
-        keep = workflow["output"]["retain_runs"]
-        if keep is None:
+    def apply_retention(self, workflow: dict, now: datetime = None) -> list:
+        """Move (never delete) a workflow's runs that fall outside the customer's configured retention to _pruned/.
+
+        output.retain_runs keeps the newest N runs; output.retain_hours keeps runs that finished within the last H hours.
+        A run outside EITHER configured limit is moved. Both unset (the default) moves nothing. A run still 'running' is
+        never moved. Missed-run records count as runs (they are part of the history)."""
+        out = workflow["output"]
+        keep, hours = out.get("retain_runs"), out.get("retain_hours")
+        if keep is None and hours is None:
             return []
+        now = now or datetime.now(timezone.utc)
         summaries, _ = self.list_runs(workflow["workflow_id"])
+        doomed = set()
+        if keep is not None:
+            doomed |= {s["run_id"] for s in summaries[keep:]}
+        if hours is not None:
+            cutoff = now - timedelta(hours=hours)
+            for s in summaries:
+                when = s["finished_at"] or s["started_at"]
+                try:
+                    if when and datetime.fromisoformat(when.replace("Z", "+00:00")) < cutoff:
+                        doomed.add(s["run_id"])
+                except ValueError:
+                    continue  # an unreadable timestamp is never a reason to move a run
         moved = []
-        for s in summaries[keep:]:
-            if s["status"] == STATUS_RUNNING:
+        for s in summaries:
+            if s["run_id"] not in doomed or s["status"] == STATUS_RUNNING:
                 continue
             src = os.path.dirname(self._run_path(s["run_id"]))
             dst = os.path.dirname(self._run_path(s["run_id"], pruned=True))
@@ -167,14 +189,18 @@ class RunStore:
         """One zip with every workflow and run plus a manifest of SHA-256 hashes."""
         if os.path.exists(zip_path):
             raise StoreError(f"{zip_path} already exists; choose a new file name")
+        # Exactly the two documents the format defines. Evidence files beside a run.json, logs, locks and schedule state are
+        # not part of a backup (evidence is regenerable from run.json with `export`).
         members = []
-        for sub in ("workflows", "runs"):
-            base = os.path.join(self.root, sub)
-            for dirpath, _, files in os.walk(base):
-                for fn in sorted(files):
-                    if fn.endswith(".json"):
-                        full = os.path.join(dirpath, fn)
-                        members.append((os.path.relpath(full, self.root).replace(os.sep, "/"), full))
+        wdir = os.path.join(self.root, "workflows")
+        for fn in sorted(os.listdir(wdir)) if os.path.isdir(wdir) else []:
+            if fn.endswith(".json") and valid_id(fn[:-5]):
+                members.append((f"workflows/{fn}", os.path.join(wdir, fn)))
+        rdir = os.path.join(self.root, "runs")
+        for rid in sorted(os.listdir(rdir)) if os.path.isdir(rdir) else []:
+            full = os.path.join(rdir, rid, "run.json")
+            if valid_id(rid) and os.path.isfile(full):
+                members.append((f"runs/{rid}/run.json", full))
         manifest = {"format": BACKUP_FORMAT, "format_version": BACKUP_FORMAT_VERSION, "created_at": utc_now(),
                     "files": {}}
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
@@ -217,6 +243,29 @@ class RunStore:
                 _atomic_write_json(target, doc)
                 report["added"].append(f"{kind}:{doc_id}")
         return report
+
+    def import_document(self, text: str) -> dict:
+        """One run.json or workflow file on its own (from a Velorona Web or QGIS result package). Validated like everything
+        else; an id that already exists is left exactly as it is. Returns {'kind', 'id', 'added'}."""
+        try:
+            doc = json.loads(text)
+        except ValueError as exc:
+            raise StoreError("not valid JSON") from exc
+        if isinstance(doc, dict) and doc.get("schema") == RUN_SCHEMA:
+            check_document(doc, RUN_SCHEMA, RUN_SCHEMA_VERSION)
+            if not valid_id(doc.get("run_id")):
+                raise StoreError("run_id is not valid")
+            exists = os.path.exists(self._run_path(doc["run_id"])) or os.path.exists(self._run_path(doc["run_id"], pruned=True))
+            if not exists:
+                self.save_run(doc)
+            return {"kind": "run", "id": doc["run_id"], "added": not exists}
+        if isinstance(doc, dict) and doc.get("schema") == WORKFLOW_SCHEMA:
+            validate_workflow(doc)
+            exists = os.path.exists(self._workflow_path(doc["workflow_id"]))
+            if not exists:
+                self.save_workflow(doc)
+            return {"kind": "workflow", "id": doc["workflow_id"], "added": not exists}
+        raise StoreError("not a Velorona run or workflow file")
 
     @staticmethod
     def _validate_member(z: zipfile.ZipFile, arc: str, expected_sha: str):
