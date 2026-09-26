@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aei-workflow-runner"
+version = "0.1.0"
+description = "Local-first workflow runner for Velorona: validated link workflows, per-link Path Clearance runs, crash-safe run history, comparison, evidence export, and a scheduler-friendly CLI. Shared by Velorona Web and the Velorona QGIS plugin."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [{ name = "AID Edge Inc." }]
+keywords = ["microwave", "path-clearance", "workflow", "scheduler", "local-first"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Telecommunications Industry",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+]
+# The analysis itself stays in aei-link-clearance (unmodified); this package only orchestrates, validates, stores and reports.
+# "elevation" brings `requests`, which the terrain lookup needs. Nothing else: no server, no database, no account.
+dependencies = ["aei-link-clearance[elevation]>=0.1.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+velorona-run = "aei_workflow.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+testpaths = ["tests"]
