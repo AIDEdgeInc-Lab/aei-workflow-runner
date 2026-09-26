@@ -109,3 +109,11 @@ def test_input_file_change_is_visible_and_the_note_never_claims_a_replay():
     b["input"]["sha256"] = "cd" * 32
     c = compare_runs(a, b)
     assert c["input_file"]["file_changed"] and "reconstruction of past conditions" in c["note"] and "Neither" in c["note"]
+
+
+def test_a_missed_scheduled_occurrence_cannot_be_a_valid_baseline():
+    from aei_workflow.service import synthetic_run
+    a = make_run()
+    missed = synthetic_run(a["workflow_snapshot"], "missed", "Not run: machine was off", trigger="scheduled", scheduled_for="2026-09-30T06:00:00+00:00")
+    c = compare_runs(a, missed)
+    assert not c["comparable"] and "missed scheduled occurrence" in " ".join(c["reasons"]) and c["summary"]["compared"] == 0

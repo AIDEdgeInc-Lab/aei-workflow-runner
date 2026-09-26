@@ -73,6 +73,8 @@ def compare_runs(a: dict, b: dict) -> dict:
             reasons.append(f"The {label} run is still in progress.")
         elif r.get("status") == "failed":
             reasons.append(f"The {label} run failed and has no results to compare.")
+        elif r.get("status") == "missed":
+            reasons.append(f"The {label} run is a missed scheduled occurrence: it did not run and has no results to compare.")
 
     version_changes = [{"field": k, "a": va, "b": vb}
                        for k, (va, vb) in sorted(_paired(_flatten(a.get("versions")), _flatten(b.get("versions"))).items())
