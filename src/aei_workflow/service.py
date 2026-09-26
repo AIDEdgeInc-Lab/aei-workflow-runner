@@ -151,6 +151,23 @@ def install_workflow(store: RunStore, workflow: dict, replace: bool = False) -> 
     return {"installed": True, "replaced_version": old_v}
 
 
+def recover_dead_runs(store: RunStore) -> list:
+    """Relabel 'running' runs as 'interrupted' where nothing is actually running. Safe on a store shared between the CLI and
+    QGIS: a workflow is only touched if its lock can be taken, and a live holder makes it skip that workflow."""
+    running = {s["workflow_id"] for s in store.list_runs()[0] if s["status"] == STATUS_RUNNING and valid_id(s["workflow_id"])}
+    recovered = []
+    for wid in sorted(running):
+        try:
+            lock = WorkflowLock(store.root, wid).acquire()
+        except LockHeld:
+            continue
+        try:
+            recovered += store.recover_interrupted(workflow_id=wid)
+        finally:
+            lock.release()
+    return recovered
+
+
 # -- records that are not a normal run ------------------------------------------------------------------------------------
 
 def synthetic_run(workflow: dict, status: str, error: str, *, trigger: str, scheduled_for: str = None, source: dict = None,

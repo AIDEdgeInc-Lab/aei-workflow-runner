@@ -425,3 +425,17 @@ def test_status_reports_last_run_errors_next_due_and_lock(env):
         w = status(store, now=dt(2026, 9, 30, 7))["workflows"][0]
     assert w["last_run"]["status"] == "failed" and w["last_run"]["link_errors"] == 3 and w["last_run"]["trigger"] == "scheduled"
     assert w["next_due"] == "2026-10-01T06:00:00+00:00" and w["running"]["pid"] == os.getpid() and w["last_completed_run"] is None
+
+
+def test_recover_dead_runs_only_touches_workflows_with_no_live_holder(env):
+    store, links, _ = env
+    wf = make_workflow(links)
+    snaps = []
+    from aei_workflow.runner import execute
+    from aei_workflow.inputs import validate_links_csv
+    execute(wf, validate_links_csv(open(links).read()), ok, on_checkpoint=lambda r: snaps.append(json.loads(json.dumps(r))), sleep=lambda s: None)
+    store.save_run(snaps[1])
+    with WorkflowLock(store.root, "wf-night"):                                    # a live run of that workflow
+        assert service.recover_dead_runs(store) == [] and store.load_run(snaps[1]["run_id"])["status"] == "running"
+    assert service.recover_dead_runs(store) == [snaps[1]["run_id"]]
+    assert store.load_run(snaps[1]["run_id"])["status"] == "interrupted" and read_lock(store.root, "wf-night") is None
