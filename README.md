@@ -31,6 +31,9 @@ Status: 0.1.0, not published to PyPI, not released. See `docs/RELEASE_HANDOFF.md
 python3 -m pip install -e path/to/aei-workflow-runner     # needs Python 3.9+; pulls in aei-link-clearance[elevation]
 velorona-run --version
 ```
+Install needs a pip/setuptools new enough to read `pyproject.toml` (setuptools >= 68 is fetched automatically by a normal `pip install`; the
+setuptools bundled with macOS's Command Line Tools Python 3.9 is too old to build it with `--no-build-isolation`). Verified: a
+non-editable install into a scratch directory gives a working `velorona-run`.
 
 Tested with Python 3.9.6 and 3.12.11 on macOS (Apple silicon). Linux is expected to work (POSIX code paths, cron/systemd
 templates) but was **not tested**. Windows is **not supported** in this release: lock-liveness checks and Task Scheduler setup
