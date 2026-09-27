@@ -1,0 +1,24 @@
+{
+  "schema": "velorona.terrestrial-bounds",
+  "version": 1,
+  "bounds": {
+    "site_a_height_m": {
+      "min": 0.1,
+      "max": 1000.0,
+      "label": "Site A antenna height",
+      "suffix": "m"
+    },
+    "site_b_height_m": {
+      "min": 0.1,
+      "max": 1000.0,
+      "label": "Site B antenna height",
+      "suffix": "m"
+    },
+    "frequency_ghz": {
+      "min": 0.1,
+      "max": 100.0,
+      "label": "Frequency",
+      "suffix": "GHz"
+    }
+  }
+}

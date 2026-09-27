@@ -1,0 +1,120 @@
+name: Publish
+
+# Intentionally narrow triggers: publishing to PyPI must never happen on an
+# ordinary push or pull request - neither is a trigger here at all.
+# Production publication normally fires when a maintainer publishes a
+# GitHub Release. It can also be run manually via workflow_dispatch with
+# target=pypi, for the case where GitHub does not re-fire the release/
+# published event for a release republished against an already-existing
+# tag (a documented GitHub Actions limitation, not a bug in this
+# workflow) - see https://github.com/orgs/community/discussions/54574.
+# A manual run defaults to testpypi so a production publish is always an
+# explicit, deliberate choice, never the accidental default.
+#
+# NOTE: this repository is public. A Trusted Publisher for the "pypi" environment is registered on pypi.org (project
+# aei-workflow-runner, owner AIDEdgeInc-Lab, repository aei-workflow-runner, workflow publish.yml, environment pypi). NO Trusted
+# Publisher is registered on test.pypi.org, so the publish-testpypi job below will fail authentication until one is - see
+# docs/PUBLISHING.md. The pypi environment requires manual reviewer approval before any deployment to it proceeds.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Index to publish to - defaults to testpypi; pypi must be chosen explicitly"
+        required: true
+        type: choice
+        options:
+          - testpypi
+          - pypi
+        default: testpypi
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - run: pip install build twine
+
+      - name: On a release, the tag must equal the package version
+        if: github.event_name == 'release'
+        run: |
+          python - <<'EOF'
+          import os, re, sys
+          version = re.search(r'^version = "([^"]+)"', open("pyproject.toml").read(), re.M).group(1)
+          tag = os.environ["GITHUB_REF_NAME"]
+          print(f"release tag={tag} pyproject version={version}")
+          sys.exit(0 if tag == f"v{version}" else 1)
+          EOF
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Verify package metadata
+        run: twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/aei-workflow-runner
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      # Pinned to an immutable commit SHA (v1.14.0), not a floating tag,
+      # since this step is what actually authenticates to PyPI via OIDC.
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    name: Publish to PyPI
+    if: |
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/aei-workflow-runner
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      # Pinned to an immutable commit SHA (v1.14.0), not a floating tag,
+      # since this step is what actually authenticates to PyPI via OIDC.
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+
+# No PyPI API token is used anywhere in this workflow. Both publish jobs authenticate exclusively via PyPI Trusted Publishing
+# (OIDC) - see docs/PUBLISHING.md. Registration is a manual, human, web-UI action on PyPI's own site and cannot be done through this
+# repository or its GitHub Actions.
