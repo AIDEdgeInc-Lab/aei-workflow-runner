@@ -31,7 +31,8 @@ def test_real_engine_end_to_end_with_stubbed_elevation(monkeypatch):
     r = run["links"][0]["result"]
     assert r["los_status"] == "clear" and r["distance_km"] > 10 and len(r["profile"]) == 50
     assert r["k_factor"] == pytest.approx(4 / 3) and "explanation" in r and run["links"][0]["result"]["profile"][0]["ground_elevation_m"] == 100.0
-    assert run["versions"]["analysis_engine"]["aei-link-clearance"] == "0.1.0"
+    from importlib.metadata import version
+    assert run["versions"]["analysis_engine"]["aei-link-clearance"] == version("aei-link-clearance")   # discovered, never a literal
 
 
 def test_real_engine_result_matches_calling_the_library_directly(monkeypatch):

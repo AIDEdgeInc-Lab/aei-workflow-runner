@@ -18,8 +18,28 @@ TERRAIN_SOURCE_NOTE = (
 )
 
 
+# aei-link-clearance 0.2.0 corrected the earth-curvature sign and announces the convention it implements. 0.1.x lacks the constant and
+# overstates clearance (by twice the earth bulge), so results from it must not be recorded as if they were correct.
+REQUIRED_CLEARANCE_CONVENTION = "bulge-added-to-terrain"
+
+
+class LibraryOutOfDateError(ValueError):
+    """The installed aei-link-clearance predates the earth-curvature correction. A ValueError, so the runner records the link as failed
+    with this message and does not retry it (reinstalling the library is the only fix)."""
+
+
+def require_corrected_clearance() -> None:
+    from aei_link_clearance import terrain
+    found = getattr(terrain, "CLEARANCE_CONVENTION", None)
+    if found != REQUIRED_CLEARANCE_CONVENTION:
+        raise LibraryOutOfDateError(
+            f"The installed aei-link-clearance uses the pre-correction earth-curvature sign (CLEARANCE_CONVENTION={found!r}, required "
+            f"{REQUIRED_CLEARANCE_CONVENTION!r}); its clearance would be overstated. Install aei-link-clearance>=0.2.0,<0.3.")
+
+
 def analyze_link_row(row: dict, params: dict) -> dict:
     from aei_link_clearance import analyze_link, explain
+    require_corrected_clearance()
 
     result = analyze_link(
         link_id=row["link_id"],
