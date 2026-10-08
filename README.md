@@ -1,5 +1,10 @@
 # aei-workflow-runner
 
+[![PyPI version](https://img.shields.io/pypi/v/aei-workflow-runner.svg)](https://pypi.org/project/aei-workflow-runner/)
+[![Python versions](https://img.shields.io/pypi/pyversions/aei-workflow-runner.svg)](https://pypi.org/project/aei-workflow-runner/)
+[![License](https://img.shields.io/pypi/l/aei-workflow-runner.svg)](https://github.com/AIDEdgeInc-Lab/aei-workflow-runner/blob/main/LICENSE)
+[![CI](https://github.com/AIDEdgeInc-Lab/aei-workflow-runner/actions/workflows/ci.yml/badge.svg)](https://github.com/AIDEdgeInc-Lab/aei-workflow-runner/actions/workflows/ci.yml)
+
 The product-neutral core of Velorona's workflow automation, plus a headless CLI, `velorona-run`, for **unattended local
 runs started by your own operating-system scheduler**.
 

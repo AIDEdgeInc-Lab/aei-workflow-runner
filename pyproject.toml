@@ -24,7 +24,9 @@ classifiers = [
 ]
 # The analysis itself stays in aei-link-clearance (unmodified); this package only orchestrates, validates, stores and reports.
 # "elevation" brings `requests`, which the terrain lookup needs. Nothing else: no server, no database, no account.
-dependencies = ["aei-link-clearance[elevation]>=0.1.0"]
+# >=0.2.0: 0.1.x applied the earth-curvature term with the wrong sign (clearance overstated, long paths could read "clear" when
+# obstructed); 0.2.0 corrects it. <0.3: a new minor line is not assumed compatible until it has been run against this package.
+dependencies = ["aei-link-clearance[elevation]>=0.2.0,<0.3"]
 
 [project.urls]
 Homepage = "https://aidedgeinc.com/tools/"
