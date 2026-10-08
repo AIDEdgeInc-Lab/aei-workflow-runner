@@ -27,8 +27,8 @@ classifiers = [
 dependencies = ["aei-link-clearance[elevation]>=0.1.0"]
 
 [project.urls]
-Homepage = "https://github.com/AIDEdgeInc-Lab/aei-workflow-runner"
-Repository = "https://github.com/AIDEdgeInc-Lab/aei-workflow-runner"
+Homepage = "https://aidedgeinc.com/tools/"
+Source = "https://github.com/AIDEdgeInc-Lab/aei-workflow-runner"
 Issues = "https://github.com/AIDEdgeInc-Lab/aei-workflow-runner/issues"
 
 [project.optional-dependencies]
