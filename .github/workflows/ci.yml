@@ -1,23 +1,37 @@
 name: CI
 
+# Test matrix, build, `twine check --strict`, wheel hygiene, clean-venv install + import, dependency audit: shared with the
+# other AID Edge libraries via AIDEdgeInc-Lab/.github (standards/ENGINEERING-QUALITY-STANDARD.md, Stage A/B for libraries).
+# The reusable workflow is pinned to a full commit SHA; Dependabot (github-actions) keeps it current.
+# Required check for branch protection: `ci-gate`.
+
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  ci:
+    uses: AIDEdgeInc-Lab/.github/.github/workflows/reusable-python-lib-ci.yml@b98a66fe6b2d73292495a23cbbe861e108d87804
+    with:
+      import-name: aei_workflow
+      python-versions: '["3.9","3.10","3.11","3.12"]'
+
+  ci-gate:
+    if: ${{ always() }}
+    needs: [ci]
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    timeout-minutes: 2
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[dev]"
-      - run: pytest -v
+      - name: All required lanes must have succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | python3 -c "
+          import json, sys
+          needs = json.load(sys.stdin)
+          print({k: v['result'] for k, v in needs.items()})
+          sys.exit(0 if all(v['result'] == 'success' for v in needs.values()) else 1)"
