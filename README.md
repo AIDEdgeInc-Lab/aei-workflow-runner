@@ -8,6 +8,8 @@
 The product-neutral core of Velorona's workflow automation, plus a headless CLI, `velorona-run`, for **unattended local
 runs started by your own operating-system scheduler**.
 
+Developed by AID Edge Inc. as the engineering foundation of Velorona.
+
 * **Shared by two independent products.** The Velorona QGIS plugin uses this package as a library. Velorona Web (the browser Map)
   cannot run Python, so it implements the same versioned documents in JavaScript and is held to them by tests. Neither product
   needs the other, and neither needs this CLI to work.
