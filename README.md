@@ -18,7 +18,7 @@ Developed by AID Edge Inc. as the engineering foundation of Velorona.
 * **Scope today: terrestrial Path Clearance** on your own link list (CSV). It is read-only analysis and decision support. It does
   **not** poll SNMP, ingest operator telemetry, predict outages, or change any network equipment.
 
-Status: 0.1.2 (alpha; 0.1.0 was the first public release). Security controls and how to report a vulnerability: [SECURITY.md](SECURITY.md). It is offered as-is under the Apache License 2.0; see the limitations below for what has and has not been tested.
+Status: 0.2.0 (alpha; 0.1.0 was the first public release). Security controls and how to report a vulnerability: [SECURITY.md](SECURITY.md). It is offered as-is under the Apache License 2.0; see the limitations below for what has and has not been tested.
 
 ## What it is not (read this first)
 
@@ -35,13 +35,13 @@ Status: 0.1.2 (alpha; 0.1.0 was the first public release). Security controls and
 ## Install
 
 ```sh
-python3 -m pip install aei-workflow-runner        # Python 3.9+; installs aei-link-clearance[elevation] and its dependencies
+python3 -m pip install aei-workflow-runner        # Python 3.10+; installs aei-link-clearance[elevation] and its dependencies
 velorona-run --version
 ```
 
 For development: `python3 -m pip install -e ".[dev]"` from a clone of this repository, then `pytest`.
 
-Tested with Python 3.9.6 and 3.12.11 on macOS (Apple silicon). Linux is expected to work (POSIX code paths, cron/systemd
+0.2.0 was tested with Python 3.11.13 and 3.12.11 on macOS (Apple silicon); CI runs Python 3.10-3.12 on Linux. (0.1.x was tested with Python 3.9.6 and 3.12.11.) Linux is expected to work (POSIX code paths, cron/systemd
 templates) but was **not tested by the maintainers**. Windows is **not supported** in this release: lock-liveness checks and Task
 Scheduler setup were not implemented or tested.
 

@@ -2,9 +2,14 @@
 
 All notable changes to this project are recorded here from 0.1.2 on. Earlier releases are the git tags `v0.1.0` (2026-09-26) and `v0.1.1` (2026-10-08).
 
-## [0.1.2] - unreleased (release candidate)
+## [0.2.0] - unreleased (release candidate)
 
-Security baseline. Runs, results and evidence are unchanged; only invalid scheduler input and a corrupted run id are refused.
+Security baseline. Runs, results and evidence are unchanged; only invalid scheduler input and a corrupted run id are refused. Minor version because Python 3.9 support ends and the aei-link-clearance range moves.
+
+### Changed (Python support and dependencies)
+
+- **Requires `aei-link-clearance[elevation]>=0.4.0,<0.5`** (was `>=0.2.0,<0.3`). 0.4 carries the 2026-11 security fixes, and its `elevation` extra floors `requests>=2.33` / `urllib3>=2.8`. The full test suite was run against it before the range was set. Velorona QGIS can now share one Python environment with this package (it accepts the 0.4 line).
+- **Python 3.9 is no longer supported (`requires-python >=3.10`)**: the required aei-link-clearance 0.4 and the patched requests/urllib3 need Python 3.10. pip on Python 3.9 keeps resolving 0.1.1.
 
 ### Fixed
 

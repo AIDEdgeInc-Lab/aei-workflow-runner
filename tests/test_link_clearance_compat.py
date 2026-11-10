@@ -28,11 +28,12 @@ def _declared():
     return next(Requirement(r) for r in requires("aei-workflow-runner") if Requirement(r).name == "aei-link-clearance")
 
 
-def test_declared_range_is_the_corrected_0_2_line():
+def test_declared_range_is_the_vetted_0_4_line():
     spec = _declared().specifier
     assert "0.1.0" not in spec and "0.1.9" not in spec          # the wrong-sign releases are excluded
-    assert "0.2.0" in spec and "0.2.7" in spec                  # every 0.2.x is allowed (no exact pin)
-    assert "0.3.0" not in spec                                  # an unvetted minor line is not assumed compatible
+    assert "0.2.1" not in spec and "0.3.0" not in spec          # releases without the 2026-11 security fixes are excluded
+    assert "0.4.0" in spec and "0.4.7" in spec                  # every 0.4.x is allowed (no exact pin); 0.4 was run against this package
+    assert "0.5.0" not in spec                                  # an unvetted minor line is not assumed compatible
     assert "elevation" in _declared().extras
 
 

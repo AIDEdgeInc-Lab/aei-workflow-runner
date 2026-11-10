@@ -8,8 +8,8 @@ supported.
 
 | Version | Supported |
 |---|---|
-| 0.1.x | Yes, best-effort |
-| < 0.1.0 | No |
+| 0.2.x | Yes, best-effort |
+| < 0.2.0 | No |
 
 ## Reporting a vulnerability
 

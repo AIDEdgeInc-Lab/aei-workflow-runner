@@ -18,7 +18,7 @@ jobs:
     uses: AIDEdgeInc-Lab/.github/.github/workflows/reusable-python-lib-ci.yml@b98a66fe6b2d73292495a23cbbe861e108d87804
     with:
       import-name: aei_workflow
-      python-versions: '["3.9","3.10","3.11","3.12"]'
+      python-versions: '["3.10","3.11","3.12"]'
 
   ci-gate:
     if: ${{ always() }}
