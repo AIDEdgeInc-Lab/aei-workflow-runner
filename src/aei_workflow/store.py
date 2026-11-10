@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import shutil
+import uuid
 import zipfile
 from datetime import datetime, timedelta, timezone
 
@@ -36,9 +37,13 @@ class StoreError(Exception):
 
 def _atomic_write_json(path: str, doc: dict) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = f"{path}.tmp-{os.getpid()}"
+    # The temporary file is created exclusively (O_EXCL) under a name nobody can predict: a file or symlink planted at that name
+    # makes the write fail instead of being followed, and a crashed run's leftover can never collide. Permissions are as before
+    # (0o666 filtered by the umask).
+    tmp = f"{path}.tmp-{os.getpid()}-{uuid.uuid4().hex}"
     try:
-        with open(tmp, "w", encoding="utf-8") as f:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(doc, f, indent=2, sort_keys=False, allow_nan=False)
             f.flush()
             os.fsync(f.fileno())

@@ -18,7 +18,7 @@ Developed by AID Edge Inc. as the engineering foundation of Velorona.
 * **Scope today: terrestrial Path Clearance** on your own link list (CSV). It is read-only analysis and decision support. It does
   **not** poll SNMP, ingest operator telemetry, predict outages, or change any network equipment.
 
-Status: 0.1.1 (alpha; 0.1.0 was the first public release). It is offered as-is under the Apache License 2.0; see the limitations below for what has and has not been tested.
+Status: 0.1.2 (alpha; 0.1.0 was the first public release). Security controls and how to report a vulnerability: [SECURITY.md](SECURITY.md). It is offered as-is under the Apache License 2.0; see the limitations below for what has and has not been tested.
 
 ## What it is not (read this first)
 
