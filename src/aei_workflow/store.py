@@ -117,7 +117,7 @@ class RunStore:
         """(summaries newest first, problems). A summary is the run without its per-link bodies'
         profiles -- enough for a history table; use load_run() to open one."""
         folder = os.path.join(self.root, "runs")
-        summaries, problems = [], []
+        entries, problems = [], []
         for run_id in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
             path = os.path.join(folder, run_id, "run.json")
             if not os.path.exists(path):
@@ -130,10 +130,16 @@ class RunStore:
                 continue
             if workflow_id and doc.get("workflow_id") != workflow_id:
                 continue
-            summaries.append({k: doc.get(k) for k in ("run_id", "workflow_id", "workflow_name", "status",
-                                                      "started_at", "finished_at", "counts", "error")})
-        summaries.sort(key=lambda s: s["started_at"] or "", reverse=True)
-        return summaries, problems
+            summary = {k: doc.get(k) for k in ("run_id", "workflow_id", "workflow_name", "status",
+                                               "started_at", "finished_at", "counts", "error")}
+            # Newest first. started_at has whole-second precision, so runs recorded in the same second (a tick that records
+            # missed occurrences, a fast run) tie; they are ordered by the occurrence they belong to (schedule.scheduled_for,
+            # UTC ISO-8601; manual runs have none and sort as the oldest of a tie), then by run_id, so the order is total and the
+            # same on every read instead of depending on the random run ids.
+            scheduled_for = (doc.get("schedule") or {}).get("scheduled_for") or ""
+            entries.append(((summary["started_at"] or "", scheduled_for, run_id), summary))
+        entries.sort(key=lambda e: e[0], reverse=True)
+        return [summary for _, summary in entries], problems
 
     def recover_interrupted(self, active_run_ids=(), workflow_id: str = None) -> list:
         """A run left in 'running' by a crash or a killed QGIS is relabelled 'interrupted'. Its
