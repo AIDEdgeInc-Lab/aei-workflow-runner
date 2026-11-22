@@ -6,3 +6,8 @@ build/
 dist/
 .venv/
 .DS_Store
+
+# Local secrets and build output (never commit)
+.env
+*.pem
+*.key

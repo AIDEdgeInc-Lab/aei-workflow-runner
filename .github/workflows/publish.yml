@@ -37,7 +37,7 @@ jobs:
   # audit), run on the exact commit being released. The audit is blocking here. Nothing is built for upload unless this passes.
   release-tests:
     name: Release tests (released commit)
-    uses: AIDEdgeInc-Lab/.github/.github/workflows/reusable-python-lib-ci.yml@b98a66fe6b2d73292495a23cbbe861e108d87804
+    uses: AIDEdgeInc-Lab/.github/.github/workflows/reusable-python-lib-ci.yml@6f8a4dccea353f50e3b26446193b483f71191e16
     with:
       import-name: aei_workflow
       python-versions: '["3.10","3.11","3.12"]'
@@ -46,7 +46,7 @@ jobs:
   build:
     name: Build distribution
     needs: release-tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -93,7 +93,7 @@ jobs:
     name: Publish to TestPyPI
     if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: testpypi
       url: https://test.pypi.org/p/aei-workflow-runner
@@ -118,7 +118,7 @@ jobs:
       github.event_name == 'release' ||
       (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: pypi
       url: https://pypi.org/p/aei-workflow-runner

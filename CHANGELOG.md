@@ -2,6 +2,13 @@
 
 All notable changes to this project are recorded here from 0.1.2 on. Earlier releases are the git tags `v0.1.0` (2026-09-26) and `v0.1.1` (2026-10-08).
 
+## [Unreleased]
+
+No code, API or result changes.
+
+- README: "What it is not" is now "Scope and operating limits"; the Open-Meteo terms note is unchanged.
+- `.gitignore`: local secret files (`.env`, `*.pem`, `*.key`) and build output.
+
 ## [0.2.0] - 2026-11-22
 
 Security baseline. Runs, results and evidence are unchanged; only invalid scheduler input and a corrupted run id are refused. Minor version because Python 3.9 support ends and the aei-link-clearance range moves.

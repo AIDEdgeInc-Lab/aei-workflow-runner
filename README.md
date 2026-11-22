@@ -20,13 +20,13 @@ Developed by AID Edge Inc. as the engineering foundation of Velorona.
 
 Status: 0.2.0 (alpha; 0.1.0 was the first public release). Security controls and how to report a vulnerability: [SECURITY.md](SECURITY.md). It is offered as-is under the Apache License 2.0; see the limitations below for what has and has not been tested.
 
-## What it is not (read this first)
+## Scope and operating limits (read this first)
 
-* **Not a monitoring system.** A scheduled run re-analyses your link list against terrain data. Repeated runs give you a history of
+* **Analysis history, not monitoring.** A scheduled run re-analyses your link list against terrain data. Repeated runs give you a history of
   *analysis results*, not telemetry samples over time, and not a replay of past conditions (terrain is a static model).
-* **Not an always-on service.** It runs when your OS scheduler starts it. If the computer is off or asleep, nothing runs; the next
+* **Runs on your scheduler.** It runs when your OS scheduler starts it. If the computer is off or asleep, nothing runs; the next
   run records that occurrence as **missed** (it never pretends it ran). Use an always-on machine or server for overnight jobs.
-* **Not a bundled data source.** Every link analysis asks the Open-Meteo elevation service for terrain. **Open-Meteo's free tier
+* **Terrain comes from Open-Meteo.** Every link analysis asks the Open-Meteo elevation service for terrain. **Open-Meteo's free tier
   is for non-commercial use only** (its terms: fewer than 10,000 calls/day, 5,000/hour, 600/minute, CC-BY 4.0 attribution;
   checked 2026-09-26 at open-meteo.com/en/terms). A commercial operator needs its own Open-Meteo commercial subscription and
   pays for it directly. This package has **no API-key or alternative-provider support yet** (NOT IMPLEMENTED), so a commercial

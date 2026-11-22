@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   ci:
-    uses: AIDEdgeInc-Lab/.github/.github/workflows/reusable-python-lib-ci.yml@b98a66fe6b2d73292495a23cbbe861e108d87804
+    uses: AIDEdgeInc-Lab/.github/.github/workflows/reusable-python-lib-ci.yml@6f8a4dccea353f50e3b26446193b483f71191e16
     with:
       import-name: aei_workflow
       python-versions: '["3.10","3.11","3.12"]'
@@ -23,7 +23,7 @@ jobs:
   ci-gate:
     if: ${{ always() }}
     needs: [ci]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - name: All required lanes must have succeeded
