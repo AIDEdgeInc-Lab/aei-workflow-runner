@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import signal
 import sys
 import threading
@@ -268,31 +269,62 @@ def cmd_schedule_template(args):
     return EXIT_OK
 
 
+_LABEL_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+
+
+def xml_escape(text: str) -> str:
+    """Escape a value for an XML text node (the launchd plist). Text substitution only; nothing is parsed."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&apos;")
+# Characters a cron line (run through /bin/sh, with % meaning newline) or a systemd unit (with % specifiers and its own quoting)
+# would interpret. A path containing one is refused rather than escaped: the text is pasted into a scheduler, so it must be obvious.
+_UNSAFE_IN_SCHEDULER_LINE = set('"\\$`%\n\r')
+
+
+def _scheduler_safe(name: str, value: str, kind: str) -> str:
+    bad = sorted(set(value) & _UNSAFE_IN_SCHEDULER_LINE)
+    if bad:
+        raise ServiceError(f"{name} contains {', '.join(repr(c) for c in bad)}, which a {kind} line would interpret; "
+                           "use a path without these characters", EXIT_USAGE)
+    return value
+
+
 def schedule_template(kind: str, store: str, python: str, every_minutes: int, label: str) -> str:
-    """Text for the customer's own OS scheduler. Nothing is installed by this program."""
-    cmd = f'"{python}" -m aei_workflow tick --store "{store}"'
+    """Text for the customer's own OS scheduler. Nothing is installed by this program.
+
+    Values are checked before they are written into scheduler text: the label is restricted to letters, digits, '.', '_' and '-';
+    the interval must be a whole number of minutes (1-59 for cron, 1-1440 otherwise); paths that a cron line or a systemd unit would
+    interpret are refused; everything written into the launchd plist is XML-escaped."""
+    if not _LABEL_RE.match(label or ""):
+        raise ServiceError("--label may contain only letters, digits, '.', '_' and '-' (1-128 characters)", EXIT_USAGE)
+    upper = 59 if kind == "cron" else 1440
+    if isinstance(every_minutes, bool) or not isinstance(every_minutes, int) or not 1 <= every_minutes <= upper:
+        raise ServiceError(f"--every-minutes must be a whole number from 1 to {upper} for {kind}", EXIT_USAGE)
     log = os.path.join(store, "logs", "scheduler.out")
     if kind == "cron":
+        python, store, log = (_scheduler_safe(n, v, "cron") for n, v in (("--python", python), ("--store", store), ("log path", log)))
+        cmd = f'"{python}" -m aei_workflow tick --store "{store}"'
         return f"# crontab -e   (Linux, macOS). Runs `tick` every {every_minutes} minutes; tick decides what is due.\n*/{every_minutes} * * * * {cmd} >> \"{log}\" 2>&1"
     if kind == "launchd":
+        x = {k: xml_escape(v) for k, v in (("python", python), ("store", store), ("log", log), ("label", label))}
         return f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>Label</key><string>{label}</string>
+  <key>Label</key><string>{x['label']}</string>
   <key>ProgramArguments</key><array>
-    <string>{python}</string><string>-m</string><string>aei_workflow</string><string>tick</string><string>--store</string><string>{store}</string>
+    <string>{x['python']}</string><string>-m</string><string>aei_workflow</string><string>tick</string><string>--store</string><string>{x['store']}</string>
   </array>
   <key>StartInterval</key><integer>{every_minutes * 60}</integer>
-  <key>StandardOutPath</key><string>{log}</string><key>StandardErrorPath</key><string>{log}</string>
+  <key>StandardOutPath</key><string>{x['log']}</string><key>StandardErrorPath</key><string>{x['log']}</string>
 </dict></plist>
 <!-- save as ~/Library/LaunchAgents/{label}.plist, then: launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/{label}.plist -->"""
     if kind == "systemd":
+        python, store = (_scheduler_safe(n, v, "systemd") for n, v in (("--python", python), ("--store", store)))
         return f"""# ~/.config/systemd/user/{label}.service
 [Unit]
 Description=Velorona scheduled workflows (tick)
 [Service]
 Type=oneshot
-ExecStart={python} -m aei_workflow tick --store {store}
+ExecStart="{python}" -m aei_workflow tick --store "{store}"
 
 # ~/.config/systemd/user/{label}.timer
 [Unit]

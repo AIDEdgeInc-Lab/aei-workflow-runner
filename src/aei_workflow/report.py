@@ -23,7 +23,7 @@ import json
 import os
 
 from .csvsafe import rows_to_csv
-from .schema import LINK_FAILED, LINK_NOT_RUN, LINK_OK
+from .schema import LINK_FAILED, LINK_NOT_RUN, LINK_OK, valid_id
 from .workflow import utc_now
 
 RESULT_HEADER = ["link_id", "source_row", "status", "distance_km", "first_fresnel_radius_m", "required_clearance_m",
@@ -215,6 +215,8 @@ def export_package(run: dict, dest_dir: str) -> str:
     """Write the package under dest_dir/velorona-run-<id>; refuses to reuse an existing folder. Returns its path."""
     if run["status"] == "running":
         raise ValueError("The run is still in progress; export it when it finishes.")
+    if not valid_id(run.get("run_id")):
+        raise ValueError(f"run_id {run.get('run_id')!r} is not a valid id; it would not be a safe folder name")
     folder = os.path.join(dest_dir, f"velorona-run-{run['run_id']}")
     if os.path.exists(folder):
         raise FileExistsError(f"{folder} already exists; nothing was overwritten")

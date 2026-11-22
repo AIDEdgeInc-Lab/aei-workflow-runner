@@ -34,7 +34,7 @@ def require_corrected_clearance() -> None:
     if found != REQUIRED_CLEARANCE_CONVENTION:
         raise LibraryOutOfDateError(
             f"The installed aei-link-clearance uses the pre-correction earth-curvature sign (CLEARANCE_CONVENTION={found!r}, required "
-            f"{REQUIRED_CLEARANCE_CONVENTION!r}); its clearance would be overstated. Install aei-link-clearance>=0.2.0,<0.3.")
+            f"{REQUIRED_CLEARANCE_CONVENTION!r}); its clearance would be overstated. Install aei-link-clearance>=0.4.0,<0.5.")
 
 
 def analyze_link_row(row: dict, params: dict) -> dict:

@@ -45,6 +45,24 @@ def test_history_is_newest_first_and_filterable_by_workflow(st):
     assert [s["run_id"] for s in st.list_runs("wf2")[0]] == [c["run_id"]]
 
 
+@pytest.mark.parametrize("ids", [("a1", "b2", "c3", "d4"), ("d4", "c3", "b2", "a1"), ("b2", "d4", "a1", "c3")])
+def test_runs_recorded_in_the_same_second_are_ordered_by_their_occurrence_not_by_run_id(st, ids):
+    """started_at has whole-second precision: a tick that records missed occurrences can write several runs in one second.
+    Newest first must then follow the occurrence each run belongs to (schedule.scheduled_for), whatever the run ids are,
+    with a manual run (no scheduled_for) as the oldest of the tie -- not the alphabetical order of random run ids."""
+    same = "2026-10-02T20:00:00+00:00"
+    plan = [("2026-09-30T06:00:00+00:00", "scheduled"), ("2026-10-01T06:00:00+00:00", "scheduled"),
+            ("2026-10-02T06:00:00+00:00", "scheduled"), (None, "manual")]
+    for run_id, (scheduled_for, trigger) in zip(ids, plan):
+        r = make_run()
+        r["run_id"], r["started_at"] = run_id, same
+        r["schedule"] = {"trigger": trigger, "scheduled_for": scheduled_for, "timezone": "UTC"}
+        st.save_run(r)
+    order = [s["run_id"] for s in st.list_runs()[0]]
+    assert order == [ids[2], ids[1], ids[0], ids[3]]           # Oct 2, Oct 1, Sep 30, then the manual run
+    assert order == [s["run_id"] for s in st.list_runs()[0]]  # identical on every read
+
+
 def test_corrupt_file_is_reported_and_left_untouched(st):
     good = make_run()
     st.save_run(good)

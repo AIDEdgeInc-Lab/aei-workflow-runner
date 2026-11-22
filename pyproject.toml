@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aei-workflow-runner"
-version = "0.1.1"
+version = "0.2.0"
 description = "Local-first workflow runner for Velorona: validated link workflows, per-link Path Clearance runs, crash-safe run history, comparison, evidence export, and a scheduler-friendly CLI. Shared by Velorona Web and the Velorona QGIS plugin."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "AID Edge Inc." }]
@@ -16,7 +16,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Telecommunications Industry",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -25,8 +24,10 @@ classifiers = [
 # The analysis itself stays in aei-link-clearance (unmodified); this package only orchestrates, validates, stores and reports.
 # "elevation" brings `requests`, which the terrain lookup needs. Nothing else: no server, no database, no account.
 # >=0.2.0: 0.1.x applied the earth-curvature term with the wrong sign (clearance overstated, long paths could read "clear" when
-# obstructed); 0.2.0 corrects it. <0.3: a new minor line is not assumed compatible until it has been run against this package.
-dependencies = ["aei-link-clearance[elevation]>=0.2.0,<0.3"]
+# obstructed); 0.2.0 corrects it. >=0.4.0: the 0.4 line carries the 2026-11 security fixes and the requests/urllib3 security floors
+# (via its "elevation" extra). It was run against this package (full suite) before the range was set. <0.5: a new minor line is not
+# assumed compatible until it has been run against this package.
+dependencies = ["aei-link-clearance[elevation]>=0.4.0,<0.5"]
 
 [project.urls]
 Homepage = "https://aidedgeinc.com/tools/"
